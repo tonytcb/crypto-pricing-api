@@ -10,3 +10,7 @@ help:
 up:
 	docker-compose up app
 	docker-compose down
+
+## lint: Runs linter for all packages
+lint:
+	@ docker run  --rm -v "`pwd`:/workspace:cached" -w "/workspace/." golangci/golangci-lint:v2.1-alpine golangci-lint run ./...
