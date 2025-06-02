@@ -16,8 +16,13 @@ type HealthHandler interface {
 	IsHealthy(c *gin.Context)
 }
 
+type PriceStreamingHandler interface {
+	Stream(c *gin.Context)
+}
+
 type HTTPHandlers struct {
-	HealthHandler HealthHandler
+	HealthHandler         HealthHandler
+	PriceStreamingHandler PriceStreamingHandler
 }
 
 type HTTPServer struct {
@@ -46,12 +51,11 @@ func (m *HTTPServer) Start() error {
 	router.Use(gin.Recovery())
 
 	router.GET("/health", m.handlers.HealthHandler.IsHealthy)
+	router.GET("/prices/:pair/stream", m.handlers.PriceStreamingHandler.Stream)
 
 	m.srv = &http.Server{
-		Addr:         m.cfg.RestAPIPort,
-		Handler:      router.Handler(),
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		Addr:    m.cfg.RestAPIPort,
+		Handler: router.Handler(),
 	}
 
 	if err := m.srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {

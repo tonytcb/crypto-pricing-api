@@ -9,7 +9,15 @@ help:
 ## up: starts through docker the application exposing its HTTP port
 up:
 	docker-compose up app
-	docker-compose down
+	docker-compose down --remove-orphans
+
+## down: stops the application and removes the containers
+down:
+	docker-compose down --remove-orphans
+
+## clean: clean up all docker containers
+clean: down
+	docker ps -aq | xargs docker stop | xargs docker rm
 
 ## lint: Runs linter for all packages
 lint:

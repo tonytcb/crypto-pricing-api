@@ -2,13 +2,14 @@ package app
 
 import (
 	"context"
-	"github.com/tonytcb/crypto-pricing-api/internal/api/http_handlers"
 	"log/slog"
 
 	"golang.org/x/sync/errgroup"
 
 	"github.com/tonytcb/crypto-pricing-api/internal/api"
+	"github.com/tonytcb/crypto-pricing-api/internal/api/http_handlers"
 	"github.com/tonytcb/crypto-pricing-api/internal/app/config"
+	"github.com/tonytcb/crypto-pricing-api/internal/infra/coindesk"
 )
 
 type Application struct {
@@ -18,8 +19,11 @@ type Application struct {
 }
 
 func NewApplication(ctx context.Context, cfg *config.Config, log *slog.Logger) (*Application, error) {
+	priceAPI := coindesk.NewPricingAPI()
+
 	handlers := api.HTTPHandlers{
-		HealthHandler: http_handlers.NewHealthHandler(),
+		HealthHandler:         http_handlers.NewHealthHandler(),
+		PriceStreamingHandler: http_handlers.NewPriceStreamer(priceAPI),
 	}
 
 	httpServer := api.NewHTTPServer(log, cfg, handlers)
@@ -42,7 +46,7 @@ func (a Application) Run(ctx context.Context) error {
 		return a.httpServer.Start()
 	})
 
-	return nil
+	return errGroup.Wait()
 }
 
 func (a Application) Stop() {

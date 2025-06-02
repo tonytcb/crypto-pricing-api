@@ -11,6 +11,10 @@ import (
 type PricingAPI struct {
 }
 
+func NewPricingAPI() *PricingAPI {
+	return &PricingAPI{}
+}
+
 func (a PricingAPI) GetPrice(ctx context.Context, pair domain.Pair) (decimal.Decimal, error) {
 	return decimal.Zero, nil
 }
