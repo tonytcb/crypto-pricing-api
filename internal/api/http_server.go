@@ -2,12 +2,12 @@ package api
 
 import (
 	"context"
-	"github.com/pkg/errors"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 
 	"github.com/tonytcb/crypto-pricing-api/internal/app/config"
 )
