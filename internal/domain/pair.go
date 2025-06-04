@@ -1,10 +1,26 @@
 package domain
 
-import "strings"
+import (
+	"github.com/pkg/errors"
+	"strings"
+)
 
 type Pair struct {
 	From Currency
 	To   Currency
+}
+
+func NewPairFromString(v string) (Pair, error) {
+	const wantLength = 6
+
+	if len(v) != wantLength {
+		return Pair{}, errors.New("invalid pair length, expected 6 characters")
+	}
+
+	return NewPair(
+		Currency(v[:3]),
+		Currency(v[3:]),
+	), nil
 }
 
 func NewPair(from, to Currency) Pair {

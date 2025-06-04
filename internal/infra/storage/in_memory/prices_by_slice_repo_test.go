@@ -17,9 +17,9 @@ func TestPricesBySliceRepoStore(t *testing.T) {
 
 	now := time.Now()
 	price := decimal.NewFromFloat(50000.0)
-	update := domain.PriceUpdate{Price: price, ReceivedAt: now}
+	update := domain.PriceUpdate{Pair: pair, Price: price, ReceivedAt: now}
 
-	repo.Store(pair, update)
+	repo.Store(update)
 
 	latest, exists := repo.GetLatest(pair)
 	assert.True(t, exists, "Expected price update to exist")
@@ -36,17 +36,17 @@ func TestPricesBySliceRepoGetLatest(t *testing.T) {
 
 	now := time.Now()
 	price1 := decimal.NewFromFloat(50000.0)
-	update1 := domain.PriceUpdate{Price: price1, ReceivedAt: now.Add(-2 * time.Hour)}
+	update1 := domain.PriceUpdate{Pair: pair, Price: price1, ReceivedAt: now.Add(-2 * time.Hour)}
 
 	price2 := decimal.NewFromFloat(51000.0)
-	update2 := domain.PriceUpdate{Price: price2, ReceivedAt: now.Add(-1 * time.Hour)}
+	update2 := domain.PriceUpdate{Pair: pair, Price: price2, ReceivedAt: now.Add(-1 * time.Hour)}
 
 	price3 := decimal.NewFromFloat(52000.0)
-	update3 := domain.PriceUpdate{Price: price3, ReceivedAt: now}
+	update3 := domain.PriceUpdate{Pair: pair, Price: price3, ReceivedAt: now}
 
-	repo.Store(pair, update1)
-	repo.Store(pair, update2)
-	repo.Store(pair, update3)
+	repo.Store(update1)
+	repo.Store(update2)
+	repo.Store(update3)
 
 	latest, exists := repo.GetLatest(pair)
 	assert.True(t, exists, "Expected price update to exist")
@@ -64,13 +64,13 @@ func TestPricesBySliceRepoGetHistory(t *testing.T) {
 	// Store multiple updates
 	now := time.Now()
 	price1 := decimal.NewFromFloat(50000.0)
-	update1 := domain.PriceUpdate{Price: price1, ReceivedAt: now.Add(-2 * time.Hour)}
+	update1 := domain.PriceUpdate{Pair: pair, Price: price1, ReceivedAt: now.Add(-2 * time.Hour)}
 
 	price2 := decimal.NewFromFloat(51000.0)
-	update2 := domain.PriceUpdate{Price: price2, ReceivedAt: now.Add(-1 * time.Hour)}
+	update2 := domain.PriceUpdate{Pair: pair, Price: price2, ReceivedAt: now.Add(-1 * time.Hour)}
 
-	repo.Store(pair, update1)
-	repo.Store(pair, update2)
+	repo.Store(update1)
+	repo.Store(update2)
 
 	// Verify history
 	history = repo.GetHistory(pair)
@@ -88,17 +88,17 @@ func TestPricesBySliceRepoHistoryCleanup(t *testing.T) {
 	// Store 3 updates
 	now := time.Now()
 	price1 := decimal.NewFromFloat(50000.0)
-	update1 := domain.PriceUpdate{Price: price1, ReceivedAt: now.Add(-2 * time.Hour)}
+	update1 := domain.PriceUpdate{Pair: pair, Price: price1, ReceivedAt: now.Add(-2 * time.Hour)}
 
 	price2 := decimal.NewFromFloat(51000.0)
-	update2 := domain.PriceUpdate{Price: price2, ReceivedAt: now.Add(-1 * time.Hour)}
+	update2 := domain.PriceUpdate{Pair: pair, Price: price2, ReceivedAt: now.Add(-1 * time.Hour)}
 
 	price3 := decimal.NewFromFloat(52000.0)
-	update3 := domain.PriceUpdate{Price: price3, ReceivedAt: now}
+	update3 := domain.PriceUpdate{Pair: pair, Price: price3, ReceivedAt: now}
 
-	repo.Store(pair, update1)
-	repo.Store(pair, update2)
-	repo.Store(pair, update3)
+	repo.Store(update1)
+	repo.Store(update2)
+	repo.Store(update3)
 
 	// Verify only the latest 2 are kept
 	history := repo.GetHistory(pair)
@@ -136,8 +136,8 @@ func TestPricesBySliceRepoGetHistoryFrom(t *testing.T) {
 	}
 
 	for i := 0; i < 5; i++ {
-		update := domain.PriceUpdate{Price: prices[i], ReceivedAt: times[i]}
-		repo.Store(pair, update)
+		update := domain.PriceUpdate{Pair: pair, Price: prices[i], ReceivedAt: times[i]}
+		repo.Store(update)
 	}
 
 	// Test 1: Get history from a timestamp before all updates
@@ -180,17 +180,13 @@ func TestPricesBySliceRepoClear(t *testing.T) {
 	repo := NewPricesBySliceRepo(3)
 	pair := domain.NewPair(domain.BTC, domain.USD)
 
-	// Store a price update
 	now := time.Now()
 	price := decimal.NewFromFloat(50000.0)
-	update := domain.PriceUpdate{Price: price, ReceivedAt: now}
+	update := domain.PriceUpdate{Pair: pair, Price: price, ReceivedAt: now}
 
-	repo.Store(pair, update)
-
-	// Clear the repository
+	repo.Store(update)
 	repo.Clear()
 
-	// Verify it was cleared
 	_, exists := repo.GetLatest(pair)
 	assert.False(t, exists, "Expected no price update to exist after clear")
 

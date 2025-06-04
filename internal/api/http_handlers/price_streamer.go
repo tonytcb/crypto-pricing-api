@@ -1,37 +1,35 @@
 package http_handlers
 
 import (
-	"context"
-	"encoding/json"
+	"log/slog"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/shopspring/decimal"
+	"github.com/google/uuid"
 
+	"github.com/tonytcb/crypto-pricing-api/internal/app/config"
 	"github.com/tonytcb/crypto-pricing-api/internal/domain"
-	"github.com/tonytcb/crypto-pricing-api/internal/infra/event_listener"
+	"github.com/tonytcb/crypto-pricing-api/internal/infra/sse"
 )
 
-type EventListener interface {
-	Listen(context.Context, domain.Pair) <-chan domain.PriceUpdate
-}
-
-type PriceAPI interface {
-	GetPrice(ctx context.Context, pair domain.Pair) (decimal.Decimal, error)
+type SseClientsManager interface {
+	RegisterClient(client *sse.Client)
+	UnregisterClient(client *sse.Client)
+	GetHistory(pair domain.Pair, since time.Time) []domain.PriceUpdate
 }
 
 type PriceStreamer struct {
-	mu        sync.Mutex
-	priceAPI  PriceAPI
-	listeners map[EventListener]struct{}
+	log            *slog.Logger
+	cfg            *config.Config
+	clientsManager SseClientsManager
 }
 
-func NewPriceStreamer(priceAPI PriceAPI) *PriceStreamer {
+func NewPriceStreamer(cfg *config.Config, clientsManager SseClientsManager) *PriceStreamer {
 	return &PriceStreamer{
-		listeners: make(map[EventListener]struct{}),
-		priceAPI:  priceAPI,
+		log:            slog.Default(),
+		cfg:            cfg,
+		clientsManager: clientsManager,
 	}
 }
 
@@ -49,60 +47,19 @@ func (h *PriceStreamer) Stream(c *gin.Context) {
 		To:   domain.USD,
 	}
 
-	// @TODO replace it by injected event listener
-	var eventListener = event_listener.NewChannel(h.priceAPI, time.Second*3, 10)
-
 	// @TODO handle since query param retrieving history price updates
 
-	h.addEventListener(eventListener)
-	defer h.removeEventListener(eventListener)
-
-	var (
-		ctx        = c.Request.Context()
-		eventsChan = eventListener.Listen(ctx, btcUsd)
-	)
-
-	for {
-		select {
-		case <-ctx.Done():
-			// @TODO debug log client disconnection
-			return
-
-		case update := <-eventsChan:
-			res := PriceStreamResponse{
-				Pair:       btcUsd.String(),
-				Price:      update.Price.String(),
-				ReceivedAt: update.ReceivedAt.Format(time.RFC3339),
-			}
-			data, err := json.Marshal(res)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				_, _ = w.Write([]byte("Error marshalling response"))
-				return
-			}
-
-			_, _ = w.Write([]byte("data: "))
-			_, _ = w.Write(data)
-			_, _ = w.Write([]byte("\n\n"))
-			w.Flush()
-		}
+	clientID := uuid.New().String()
+	client, err := sse.NewClient(clientID, c.Writer, h.cfg.SseClientsBufferSize)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Streaming not supported"})
+		return
 	}
-}
 
-func (h *PriceStreamer) addEventListener(c EventListener) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.listeners[c] = struct{}{}
-}
+	h.clientsManager.RegisterClient(client)
+	defer h.clientsManager.UnregisterClient(client)
 
-func (h *PriceStreamer) removeEventListener(c EventListener) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	delete(h.listeners, c)
-}
+	go client.Listen(btcUsd)
 
-type PriceStreamResponse struct {
-	Pair       string `json:"pair"`
-	Price      string `json:"price"`
-	ReceivedAt string `json:"received_at"`
+	<-c.Request.Context().Done() // wait until a client is connected
 }

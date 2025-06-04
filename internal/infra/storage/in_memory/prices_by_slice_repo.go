@@ -20,9 +20,11 @@ func NewPricesBySliceRepo(maxHistorySize int) *PricesBySliceRepo {
 	}
 }
 
-func (r *PricesBySliceRepo) Store(pair domain.Pair, priceUpdate domain.PriceUpdate) {
+func (r *PricesBySliceRepo) Store(priceUpdate domain.PriceUpdate) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
+
+	pair := priceUpdate.Pair
 
 	history, exists := r.prices[pair]
 	if !exists {

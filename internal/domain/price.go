@@ -7,6 +7,7 @@ import (
 )
 
 type PriceUpdate struct {
+	Pair       Pair
 	Price      decimal.Decimal
 	ReceivedAt time.Time
 }
