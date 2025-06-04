@@ -64,7 +64,3 @@ func (p *HTTPPulling) Start(ctx context.Context, pair domain.Pair) (<-chan domai
 
 	return ch, nil
 }
-
-func (p *HTTPPulling) Stop() {
-	// todo
-}

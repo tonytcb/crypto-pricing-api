@@ -18,7 +18,11 @@ type PricesListener struct {
 }
 
 func NewPricesListener(notifier Notifier, eventsChan <-chan domain.PriceUpdate) *PricesListener {
-	return &PricesListener{notifier: notifier, eventsChan: eventsChan}
+	return &PricesListener{
+		log:        slog.Default(),
+		notifier:   notifier,
+		eventsChan: eventsChan,
+	}
 }
 
 func (l PricesListener) Start(ctx context.Context) error {
@@ -36,6 +40,7 @@ func (l PricesListener) Start(ctx context.Context) error {
 				}
 
 				l.log.Debug("Received price update", "update", update)
+
 				l.notifier.Broadcast(update)
 			}
 		}

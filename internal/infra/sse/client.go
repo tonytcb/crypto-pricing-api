@@ -3,6 +3,7 @@ package sse
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 )
 
 type Client struct {
+	log      *slog.Logger
 	id       string
 	ch       chan domain.PriceUpdate
 	writer   http.ResponseWriter
@@ -33,6 +35,7 @@ func NewClient(id string, w http.ResponseWriter, bufferSize int) (*Client, error
 	}
 
 	return &Client{
+		log:      slog.Default(),
 		id:       id,
 		ch:       make(chan domain.PriceUpdate, bufferSize),
 		writer:   w,
@@ -51,22 +54,21 @@ func (c *Client) Send(update domain.PriceUpdate) error {
 	case c.ch <- update:
 		return nil
 	default:
-		return fmt.Errorf("client buffer is full")
+		return errors.New("client buffer is full")
 	}
 }
 
 func (c *Client) Listen(pair domain.Pair) {
-	defer close(c.done)
-
 	for {
 		select {
 		case update := <-c.ch:
 			if update.Pair != pair {
-				// Ignore updates for pairs that the client is not subscribed to
+				c.log.Debug("Ignoring update for unregistered pair", "pair", update.Pair.String(), "client_id", c.id)
 				continue
 			}
 
 			if err := c.writeUpdate(update); err != nil {
+				c.log.Error("Failed to write update to client", "error", err.Error())
 				return
 			}
 		case <-c.done:

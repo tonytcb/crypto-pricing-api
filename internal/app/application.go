@@ -19,11 +19,12 @@ import (
 )
 
 type Application struct {
-	cfg           *config.Config
-	log           *slog.Logger
-	httpServer    *api.HTTPServer
-	eventProvider *event_provider.HTTPPulling
-	eventListener *event_listener.PricesListener
+	cfg            *config.Config
+	log            *slog.Logger
+	httpServer     *api.HTTPServer
+	eventProvider  *event_provider.HTTPPulling
+	eventListener  *event_listener.PricesListener
+	clientsManager *sse.Hub
 }
 
 func NewApplication(ctx context.Context, cfg *config.Config, log *slog.Logger) (*Application, error) {
@@ -33,7 +34,7 @@ func NewApplication(ctx context.Context, cfg *config.Config, log *slog.Logger) (
 	}
 
 	var (
-		coinDeskHTTPClient  = &http.Client{Timeout: cfg.CoinDeskRetryTimeout}
+		coinDeskHTTPClient  = &http.Client{Timeout: cfg.CoinDeskClientTimeout}
 		priceAPI            = coindesk.NewPricingAPI(coinDeskHTTPClient, cfg)
 		pricesEventProvider = event_provider.NewHTTPPulling(priceAPI, cfg.PricesPullingInterval, cfg.PricesChannelBufferSize)
 		pricesRepo          = in_memory.NewPricesBySliceRepo(cfg.StoreMaxItems)
@@ -55,11 +56,12 @@ func NewApplication(ctx context.Context, cfg *config.Config, log *slog.Logger) (
 	httpServer := api.NewHTTPServer(log, cfg, handlers)
 
 	return &Application{
-		cfg:           cfg,
-		log:           log,
-		httpServer:    httpServer,
-		eventProvider: pricesEventProvider,
-		eventListener: eventListener,
+		cfg:            cfg,
+		log:            log,
+		httpServer:     httpServer,
+		eventProvider:  pricesEventProvider,
+		eventListener:  eventListener,
+		clientsManager: clientsManager,
 	}, nil
 }
 
@@ -80,12 +82,20 @@ func (a Application) Run(ctx context.Context) error {
 		return a.eventListener.Start(ctx)
 	})
 
+	errGroup.Go(func() error {
+		a.log.Info("Starting clients manager")
+
+		a.clientsManager.Start()
+
+		return nil
+	})
+
 	return errGroup.Wait()
 }
 
 func (a Application) Stop() {
 	a.log.Info("Stopping application")
 
-	a.eventProvider.Stop()
 	_ = a.httpServer.Stop()
+	a.clientsManager.Stop()
 }

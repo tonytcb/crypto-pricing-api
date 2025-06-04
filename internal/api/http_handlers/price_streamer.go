@@ -41,12 +41,6 @@ func (h *PriceStreamer) Stream(c *gin.Context) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Transfer-Encoding", "chunked")
 
-	// @TODO Replace it by api input, if desired
-	var btcUsd = domain.Pair{
-		From: domain.BTC,
-		To:   domain.USD,
-	}
-
 	// @TODO handle since query param retrieving history price updates
 
 	clientID := uuid.New().String()
@@ -56,10 +50,26 @@ func (h *PriceStreamer) Stream(c *gin.Context) {
 		return
 	}
 
+	var pair = domain.Pair{
+		From: domain.BTC,
+		To:   domain.USD,
+	}
+
+	if pairParam := c.Param("pair"); pairParam != "" {
+		v, err := domain.NewPairFromString(pairParam)
+		if err != nil {
+			h.log.Error("Invalid pair parameter", "pair", pairParam, "error", err.Error())
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid pair parameter"})
+			return
+		}
+
+		pair = v
+	}
+
 	h.clientsManager.RegisterClient(client)
 	defer h.clientsManager.UnregisterClient(client)
 
-	go client.Listen(btcUsd)
+	go client.Listen(pair)
 
 	<-c.Request.Context().Done() // wait until a client is connected
 }
