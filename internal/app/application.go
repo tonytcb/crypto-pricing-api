@@ -49,6 +49,7 @@ func NewApplication(ctx context.Context, cfg *config.Config, log *slog.Logger) (
 	eventListener := event_listener.NewPricesListener(clientsManager, eventsChan)
 
 	handlers := api.HTTPHandlers{
+		CorsHandler:           http_handlers.NewCorsHandler(),
 		HealthHandler:         http_handlers.NewHealthHandler(),
 		PriceStreamingHandler: http_handlers.NewPriceStreamer(cfg, clientsManager),
 	}

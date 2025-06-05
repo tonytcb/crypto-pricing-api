@@ -16,12 +16,17 @@ type HealthHandler interface {
 	IsHealthy(c *gin.Context)
 }
 
+type CorsHandler interface {
+	Allowed(c *gin.Context)
+}
+
 type PriceStreamingHandler interface {
 	Stream(c *gin.Context)
 }
 
 type HTTPHandlers struct {
 	HealthHandler         HealthHandler
+	CorsHandler           CorsHandler
 	PriceStreamingHandler PriceStreamingHandler
 }
 
@@ -51,7 +56,7 @@ func (m *HTTPServer) Start() error {
 	router.Use(gin.Recovery())
 
 	router.GET("/health", m.handlers.HealthHandler.IsHealthy)
-	router.GET("/prices/:pair/stream", m.handlers.PriceStreamingHandler.Stream)
+	router.GET("/prices/:pair/stream", m.handlers.CorsHandler.Allowed, m.handlers.PriceStreamingHandler.Stream)
 
 	m.srv = &http.Server{
 		Addr:    m.cfg.RestAPIPort,
