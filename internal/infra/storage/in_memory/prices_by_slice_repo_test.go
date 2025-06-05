@@ -53,12 +53,12 @@ func TestPricesBySliceRepoGetLatest(t *testing.T) {
 	assert.True(t, latest.Price.Equal(price3), "Expected latest price to be %s, got %s", price3, latest.Price)
 }
 
-func TestPricesBySliceRepoGetHistory(t *testing.T) {
+func TestPricesBySliceRepoGetAll(t *testing.T) {
 	repo := NewPricesBySliceRepo(3)
 	pair := domain.NewPair(domain.BTC, domain.USD)
 
 	// Test with no data
-	history := repo.GetHistory(pair)
+	history := repo.GetAll(pair)
 	assert.Len(t, history, 0, "Expected empty history")
 
 	// Store multiple updates
@@ -73,7 +73,7 @@ func TestPricesBySliceRepoGetHistory(t *testing.T) {
 	repo.Store(update2)
 
 	// Verify history
-	history = repo.GetHistory(pair)
+	history = repo.GetAll(pair)
 	assert.Len(t, history, 2, "Expected 2 items in history")
 
 	// Verify the history is returned in chronological order
@@ -101,7 +101,7 @@ func TestPricesBySliceRepoHistoryCleanup(t *testing.T) {
 	repo.Store(update3)
 
 	// Verify only the latest 2 are kept
-	history := repo.GetHistory(pair)
+	history := repo.GetAll(pair)
 	assert.Len(t, history, 2, "Expected 2 items in history")
 
 	// Verify the oldest was removed
@@ -109,7 +109,7 @@ func TestPricesBySliceRepoHistoryCleanup(t *testing.T) {
 	assert.True(t, history[1].Price.Equal(price3), "Expected second price to be %s, got %s", price3, history[1].Price)
 }
 
-func TestPricesBySliceRepoGetHistoryFrom(t *testing.T) {
+func TestPricesBySliceRepoGetSince(t *testing.T) {
 	repo := NewPricesBySliceRepo(5)
 	pair := domain.NewPair(domain.BTC, domain.USD)
 
@@ -190,6 +190,6 @@ func TestPricesBySliceRepoClear(t *testing.T) {
 	_, exists := repo.GetLatest(pair)
 	assert.False(t, exists, "Expected no price update to exist after clear")
 
-	history := repo.GetHistory(pair)
+	history := repo.GetAll(pair)
 	assert.Len(t, history, 0, "Expected empty history after clear")
 }

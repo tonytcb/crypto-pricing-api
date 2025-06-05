@@ -3,6 +3,7 @@ package http_handlers
 import (
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -41,8 +42,6 @@ func (h *PriceStreamer) Stream(c *gin.Context) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Transfer-Encoding", "chunked")
 
-	// @TODO handle since query param retrieving history price updates
-
 	clientID := uuid.New().String()
 	client, err := sse.NewClient(clientID, c.Writer, h.cfg.SseClientsBufferSize)
 	if err != nil {
@@ -50,26 +49,43 @@ func (h *PriceStreamer) Stream(c *gin.Context) {
 		return
 	}
 
+	h.clientsManager.RegisterClient(client)
+	defer h.clientsManager.UnregisterClient(client)
+
 	var pair = domain.Pair{
 		From: domain.BTC,
 		To:   domain.USD,
 	}
 
+	// Parse the 'pair' parameter to listen to prices from
 	if pairParam := c.Param("pair"); pairParam != "" {
-		v, err := domain.NewPairFromString(pairParam)
+		pair, err = domain.NewPairFromString(pairParam)
 		if err != nil {
 			h.log.Error("Invalid pair parameter", "pair", pairParam, "error", err.Error())
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid pair parameter"})
 			return
 		}
-
-		pair = v
 	}
 
-	h.clientsManager.RegisterClient(client)
-	defer h.clientsManager.UnregisterClient(client)
+	// Stream historical data if the 'since' parameter is provided
+	if sinceParam := c.Query("since"); sinceParam != "" {
+		timestamp, err := strconv.ParseInt(sinceParam, 10, 64)
+		if err != nil {
+			h.log.Error("Invalid since parameter", "since", sinceParam, "error", err.Error())
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid since parameter"})
+			return
+		}
+		since := time.Unix(timestamp, 0)
+
+		history := h.clientsManager.GetHistory(pair, since)
+		for _, priceUpdate := range history {
+			if err := client.Send(priceUpdate); err != nil {
+				h.log.Error("Failed to send history price update", "error", err.Error())
+			}
+		}
+	}
 
 	go client.Listen(pair)
 
-	<-c.Request.Context().Done() // wait until a client is connected
+	<-c.Request.Context().Done() // blocks until the client is connected
 }

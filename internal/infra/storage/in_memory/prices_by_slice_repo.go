@@ -52,7 +52,7 @@ func (r *PricesBySliceRepo) GetLatest(pair domain.Pair) (domain.PriceUpdate, boo
 	return history[len(history)-1], true
 }
 
-func (r *PricesBySliceRepo) GetHistory(pair domain.Pair) []domain.PriceUpdate {
+func (r *PricesBySliceRepo) GetAll(pair domain.Pair) []domain.PriceUpdate {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 

@@ -30,6 +30,8 @@ func NewPricingAPI(client HTTPClient, config *config.Config) *PriceAPI {
 	}
 }
 
+// GetPrice fetches the price for a given currency pair from the CoinDesk API.
+// API documentation: https://developers.coindesk.com/documentation/legacy/Price/SingleSymbolPriceEndpoint/
 func (a PriceAPI) GetPrice(ctx context.Context, pair domain.Pair) (decimal.Decimal, error) {
 	var price decimal.Decimal
 	var err error
