@@ -37,7 +37,7 @@ func NewApplication(ctx context.Context, cfg *config.Config, log *slog.Logger) (
 		coinDeskHTTPClient  = &http.Client{Timeout: cfg.CoinDeskClientTimeout}
 		priceAPI            = coindesk.NewPricingAPI(coinDeskHTTPClient, cfg)
 		pricesEventProvider = event_provider.NewHTTPPulling(priceAPI, cfg.PricesPullingInterval, cfg.PricesChannelBufferSize)
-		pricesRepo          = in_memory.NewPricesBySliceRepo(cfg.StoreMaxItems)
+		pricesRepo          = in_memory.NewPricesByRingBuffer(cfg.StoreMaxItems)
 		clientsManager      = sse.NewHub(pricesRepo, cfg.SSEClientsCleanUpInterval)
 	)
 
