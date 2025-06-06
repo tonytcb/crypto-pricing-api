@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -13,13 +14,13 @@ import (
 )
 
 type Client struct {
-	log      *slog.Logger
-	id       string
-	ch       chan domain.PriceUpdate
-	writer   http.ResponseWriter
-	flusher  http.Flusher
-	done     chan struct{}
-	lastSeen time.Time
+	mu      sync.RWMutex
+	log     *slog.Logger
+	id      string
+	ch      chan domain.PriceUpdate
+	writer  http.ResponseWriter
+	flusher http.Flusher
+	done    chan struct{}
 }
 
 type PriceStreamResponse struct {
@@ -35,13 +36,12 @@ func NewClient(id string, w http.ResponseWriter, bufferSize int) (*Client, error
 	}
 
 	return &Client{
-		log:      slog.Default(),
-		id:       id,
-		ch:       make(chan domain.PriceUpdate, bufferSize),
-		writer:   w,
-		flusher:  flusher,
-		done:     make(chan struct{}),
-		lastSeen: time.Now().UTC(),
+		log:     slog.Default(),
+		id:      id,
+		ch:      make(chan domain.PriceUpdate, bufferSize),
+		writer:  w,
+		flusher: flusher,
+		done:    make(chan struct{}),
 	}, nil
 }
 
@@ -89,13 +89,15 @@ func (c *Client) writeUpdate(update domain.PriceUpdate) error {
 		return err
 	}
 
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	_, err = fmt.Fprintf(c.writer, "data: %s\n\n", data)
 	if err != nil {
 		return errors.Wrap(err, "failed to stream update to client")
 	}
 
 	c.flusher.Flush()
-	c.lastSeen = time.Now().UTC()
 
 	return nil
 }

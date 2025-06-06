@@ -1,6 +1,7 @@
 package sse
 
 import (
+	"log/slog"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -14,6 +15,8 @@ import (
 )
 
 func TestHub_Start(t *testing.T) {
+	slog.SetDefault(newNoopLogger())
+
 	pricesRepo := new(MockPricesRepository)
 	hub := NewHub(pricesRepo, 100*time.Millisecond)
 
@@ -74,6 +77,8 @@ func TestHub_Start(t *testing.T) {
 }
 
 func TestHub_CleanupDisconnectedClients(t *testing.T) {
+	slog.SetDefault(newNoopLogger())
+
 	pricesRepo := new(MockPricesRepository)
 	hub := NewHub(pricesRepo, time.Minute)
 
@@ -95,6 +100,8 @@ func TestHub_CleanupDisconnectedClients(t *testing.T) {
 }
 
 func TestHub_CloseAllClients(t *testing.T) {
+	slog.SetDefault(newNoopLogger())
+
 	pricesRepo := new(MockPricesRepository)
 	hub := NewHub(pricesRepo, time.Minute)
 

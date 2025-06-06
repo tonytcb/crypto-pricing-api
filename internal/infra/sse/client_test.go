@@ -2,9 +2,12 @@ package sse
 
 import (
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -27,7 +30,6 @@ func TestNewClient(t *testing.T) {
 	})
 
 	t.Run("Error - Writer does not support flushing", func(t *testing.T) {
-		// Create a mock writer that doesn't implement http.Flusher
 		mockWriter := &mockResponseWriter{}
 		client, err := NewClient("test-client-1", mockWriter, 10)
 
@@ -46,6 +48,8 @@ func TestClient_ID(t *testing.T) {
 }
 
 func TestClient_Send(t *testing.T) {
+	slog.SetDefault(newNoopLogger())
+
 	t.Run("Buffer full", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		client, err := NewClient("test-client-1", w, 1) // Buffer size of 1
@@ -154,8 +158,13 @@ func TestClient_Listen(t *testing.T) {
 
 		require.NoError(t, client.Send(update))
 
+		var mu sync.Mutex
+
 		assert.Eventually(t, func() bool {
-			return strings.Contains(w.Body.String(), "data: ")
+			mu.Lock()
+			response := w.Body.String()
+			mu.Unlock()
+			return strings.Contains(response, "data: ")
 		}, 100*time.Millisecond, 10*time.Millisecond, "Client should receive the update")
 
 		w.Body.Reset()
@@ -166,9 +175,12 @@ func TestClient_Listen(t *testing.T) {
 		update.Price = decimal.NewFromFloat(55000)
 		_ = client.Send(update) // Ignoring error as the client might be closed
 
-		// Verify the client is closed and no more updates are processed
+		// Verify the client is closed, and no more updates are processed
 		assert.Eventually(t, func() bool {
-			return client.IsClosed() && w.Body.String() == ""
+			mu.Lock()
+			response := w.Body.String()
+			mu.Unlock()
+			return client.IsClosed() && response == ""
 		}, 100*time.Millisecond, 10*time.Millisecond, "Client should be closed and not process updates")
 	})
 }
@@ -197,4 +209,8 @@ func (m *mockResponseWriter) Write(b []byte) (int, error) {
 
 func (m *mockResponseWriter) WriteHeader(statusCode int) {
 	m.status = statusCode
+}
+
+func newNoopLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }

@@ -39,8 +39,6 @@ func NewHub(pricesRepo PricesRepository, cleanUpInterval time.Duration) *Hub {
 }
 
 func (h *Hub) Start() {
-	defer close(h.done)
-
 	cleanupTicker := time.NewTicker(h.cleanUpInterval)
 	defer cleanupTicker.Stop()
 
@@ -119,9 +117,13 @@ func (h *Hub) removeClient(client *Client) {
 
 func (h *Hub) broadcastUpdate(update domain.PriceUpdate) {
 	h.mu.RLock()
-	defer h.mu.RUnlock()
-
+	clients := make([]*Client, 0, len(h.clients))
 	for client := range h.clients {
+		clients = append(clients, client)
+	}
+	h.mu.RUnlock()
+
+	for _, client := range clients {
 		if err := client.Send(update); err != nil {
 			h.log.Error("Failed to send update to client", "client_id", client.ID(), "error", err.Error())
 		}
