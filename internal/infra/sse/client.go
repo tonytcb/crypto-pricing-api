@@ -35,14 +35,16 @@ func NewClient(id string, w http.ResponseWriter, bufferSize int) (*Client, error
 		return nil, errors.New("response writer does not support streaming")
 	}
 
-	return &Client{
+	client := &Client{
 		log:     slog.Default(),
 		id:      id,
 		ch:      make(chan domain.PriceUpdate, bufferSize),
 		writer:  w,
 		flusher: flusher,
 		done:    make(chan struct{}),
-	}, nil
+	}
+
+	return client, nil
 }
 
 func (c *Client) ID() string {

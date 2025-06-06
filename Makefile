@@ -22,7 +22,7 @@ clean: down
 ## tests: Runs all tests in the project
 tests:
 	@ echo "Running tests..."
-	go test -race ./...
+	go clean -testcache && go test -race ./...
 
 ## lint: Runs linter for all packages
 lint:

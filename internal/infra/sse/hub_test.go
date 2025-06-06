@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/tonytcb/crypto-pricing-api/internal/domain"
+	"github.com/tonytcb/crypto-pricing-api/test/mocks"
 )
 
 func TestHub_Start(t *testing.T) {
@@ -20,11 +21,11 @@ func TestHub_Start(t *testing.T) {
 	pricesRepo := new(MockPricesRepository)
 	hub := NewHub(pricesRepo, 100*time.Millisecond)
 
-	w1 := httptest.NewRecorder()
+	w1 := mocks.NewThreadSafeRecorder()
 	client1, err := NewClient("test-client-1", w1, 10)
 	assert.NoError(t, err)
 
-	w2 := httptest.NewRecorder()
+	w2 := mocks.NewThreadSafeRecorder()
 	client2, err := NewClient("test-client-2", w2, 10)
 	assert.NoError(t, err)
 
@@ -56,8 +57,8 @@ func TestHub_Start(t *testing.T) {
 	hub.Broadcast(update)
 
 	assert.Eventually(t, func() bool {
-		response1 := w1.Body.String()
-		response2 := w2.Body.String()
+		response1 := w1.BodyString()
+		response2 := w2.BodyString()
 		return strings.Contains(response1, "50000") && strings.Contains(response2, "50000")
 	}, 100*time.Millisecond, 10*time.Millisecond, "Clients should receive the broadcast")
 
@@ -89,7 +90,7 @@ func TestHub_CleanupDisconnectedClients(t *testing.T) {
 	w2 := httptest.NewRecorder()
 	client2, err := NewClient("test-client-2", w2, 10)
 	assert.NoError(t, err)
-	client2.Close() // Mark as closed
+	client2.Close()
 
 	hub.addClient(client1)
 	hub.addClient(client2)

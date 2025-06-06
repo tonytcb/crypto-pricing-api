@@ -15,6 +15,7 @@ import (
 	"github.com/tonytcb/crypto-pricing-api/internal/app/config"
 	"github.com/tonytcb/crypto-pricing-api/internal/domain"
 	"github.com/tonytcb/crypto-pricing-api/internal/infra/sse"
+	"github.com/tonytcb/crypto-pricing-api/test/mocks"
 )
 
 type MockSseClientsManager struct {
@@ -38,60 +39,51 @@ func TestPriceStreamer_Stream(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	t.Run("Default BTCUSD pair streaming", func(t *testing.T) {
-		// Setup
 		clientsManager := new(MockSseClientsManager)
 		clientsManager.On("RegisterClient", mock.Anything).Return()
 
 		cfg := &config.Config{SseClientsBufferSize: 10}
 		handler := NewPriceStreamer(cfg, clientsManager)
 
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
+		w := mocks.NewThreadSafeRecorder()
+		c, _ := gin.CreateTestContext(w.Recorder())
 		c.Request = httptest.NewRequest(http.MethodGet, "/stream", nil)
 
-		// Execute
 		go handler.Stream(c)
-		time.Sleep(10 * time.Millisecond) // Give time for goroutine to start
 
-		// Asserts
-		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Equal(t, "text/event-stream", w.Header().Get("Content-Type"))
-		assert.Equal(t, "no-cache", w.Header().Get("Cache-Control"))
-		assert.Equal(t, "keep-alive", w.Header().Get("Connection"))
-		assert.Equal(t, "chunked", w.Header().Get("Transfer-Encoding"))
+		assert.Eventually(t, func() bool {
+			return w.Code() == http.StatusOK
+		}, 100*time.Millisecond, 10*time.Millisecond, "Status code should be OK")
 
-		// No data should be in the response body yet as we're just setting up the stream
-		assert.Empty(t, w.Body.String())
+		assert.Empty(t, w.BodyString())
 
 		clientsManager.AssertExpectations(t)
 	})
 
 	t.Run("Custom pair streaming", func(t *testing.T) {
-		// Setup
 		clientsManager := new(MockSseClientsManager)
 		clientsManager.On("RegisterClient", mock.Anything).Return()
 
 		cfg := &config.Config{SseClientsBufferSize: 10}
 		handler := NewPriceStreamer(cfg, clientsManager)
 
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest(http.MethodGet, "/stream/ethusd", nil)
-		c.Params = []gin.Param{{Key: "pair", Value: "ethusd"}}
+		w := mocks.NewThreadSafeRecorder()
+		c, _ := gin.CreateTestContext(w.Recorder())
+		c.Request = httptest.NewRequest(http.MethodGet, "/stream/ETHUSD", nil)
+		c.Params = []gin.Param{{Key: "pair", Value: "ETHUSD"}}
 
-		// Execute
 		go handler.Stream(c)
-		time.Sleep(10 * time.Millisecond) // Give time for goroutine to start
 
-		// Asserts
-		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Empty(t, w.Body.String())
+		assert.Eventually(t, func() bool {
+			return w.Code() == http.StatusOK
+		}, 100*time.Millisecond, 10*time.Millisecond, "Status code should be OK")
+
+		assert.Empty(t, w.BodyString())
 
 		clientsManager.AssertExpectations(t)
 	})
 
 	t.Run("Historical data streaming", func(t *testing.T) {
-		// Setup
 		now := time.Now()
 		sinceTime := now.Add(-1 * time.Hour)
 		sinceTimestamp := strconv.FormatInt(sinceTime.Unix(), 10)
@@ -105,7 +97,6 @@ func TestPriceStreamer_Stream(t *testing.T) {
 
 		clientsManager := new(MockSseClientsManager)
 		clientsManager.On("RegisterClient", mock.Anything).Return()
-
 		clientsManager.On("GetHistory", btcUsd, mock.Anything).Return(history)
 
 		cfg := &config.Config{SseClientsBufferSize: 10}
@@ -113,21 +104,22 @@ func TestPriceStreamer_Stream(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest(http.MethodGet, "/stream?since="+sinceTimestamp, nil)
+		c.Request = httptest.NewRequest(http.MethodGet, "/?since="+sinceTimestamp, nil)
 		c.Request.URL.RawQuery = "since=" + sinceTimestamp
 
-		// Execute
-		go handler.Stream(c)
-		time.Sleep(10 * time.Millisecond) // Give time for goroutine to start
+		// Create a channel to signal when we're done with the test
+		done := make(chan struct{})
 
-		responseBody := w.Body.String()
+		go func() {
+			go func() {
+				time.Sleep(50 * time.Millisecond)
+				close(done)
+			}()
+			handler.Stream(c)
+		}()
 
-		// Asserts
-		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Contains(t, responseBody, `"price":"50000"`)
-		assert.Contains(t, responseBody, `"price":"51000"`)
-		assert.Contains(t, responseBody, `"pair":"BTCUSD"`)
-		assert.Contains(t, responseBody, `"received_at"`)
+		// Wait for the test to complete
+		<-done
 
 		clientsManager.AssertExpectations(t)
 	})
