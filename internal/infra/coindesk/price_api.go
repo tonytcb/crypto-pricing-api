@@ -77,7 +77,9 @@ func (a PriceAPI) fetchPrice(ctx context.Context, pair domain.Pair) (decimal.Dec
 	if err != nil {
 		return decimal.Zero, errors.Wrap(err, "failed to execute request")
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return decimal.Zero, errors.Errorf("unexpected status code: %d", resp.StatusCode)
