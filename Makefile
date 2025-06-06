@@ -19,6 +19,11 @@ down:
 clean: down
 	docker ps -aq | xargs docker stop | xargs docker rm
 
+## tests: Runs all tests in the project
+tests:
+	@ echo "Running tests..."
+	go test -race ./...
+
 ## lint: Runs linter for all packages
 lint:
 	@ docker run  --rm -v "`pwd`:/workspace:cached" -w "/workspace/." golangci/golangci-lint:v2.1-alpine golangci-lint run ./...

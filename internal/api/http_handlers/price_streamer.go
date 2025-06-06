@@ -87,5 +87,5 @@ func (h *PriceStreamer) Stream(c *gin.Context) {
 
 	go client.Listen(pair)
 
-	<-c.Request.Context().Done() // blocks until the client is connected
+	<-c.Request.Context().Done() // blocks while the client is connected
 }

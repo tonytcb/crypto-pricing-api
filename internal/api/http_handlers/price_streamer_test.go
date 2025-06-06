@@ -17,7 +17,6 @@ import (
 	"github.com/tonytcb/crypto-pricing-api/internal/infra/sse"
 )
 
-// MockSseClientsManager is a mock implementation of SseClientsManager
 type MockSseClientsManager struct {
 	mock.Mock
 }
